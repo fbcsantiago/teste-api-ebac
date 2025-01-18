@@ -1,0 +1,90 @@
+pipeline {
+    agent any
+
+    options {
+        timeout(time: 30, unit: 'MINUTES') // Limitar o tempo máximo do pipeline
+        timestamps() // Adicionar timestamps nos logs
+    }
+
+    stages {
+        stage('Preparação') {
+            steps {
+                ansiColor('xterm') {
+                    echo 'Preparando o ambiente...'
+
+                    // Limpar arquivos antigos
+                    cleanWs()
+
+                    // Clonar o repositório
+                    git branch: 'master', url: 'https://github.com/fbcsantiago/teste-api-ebac.git'
+
+                    // Configurar versão do Node.js
+                    script {
+                        env.NODEJS_HOME = "${tool 'NODEJS'}"
+                        // on linux / mac
+                        env.PATH="${env.NODEJS_HOME}/bin:${env.PATH}"
+                        // on windows
+                        env.PATH="${env.NODEJS_HOME};${env.PATH}"
+                      
+                    }
+
+                }
+            }
+        }
+
+        stage('Execução dos Testes com Cypress') {
+            steps {
+                ansiColor('xterm') {
+                    echo 'Executando os testes do Cypress...'
+                      sh 'npm --version'
+
+                        
+                        // Instalar dependências
+                        echo 'instalando o crypess...'
+                        sh 'npm install -g cypress'
+
+                        echo 'instalando dependencias...'
+                        sh 'npm install'
+                    // Executar os testes
+                    sh 'npx cypress run'
+                }
+            }
+        }
+
+        stage('Publicação dos Resultados') {
+            steps {
+                ansiColor('xterm') {
+                    echo 'Publicando os resultados dos testes...'
+                    // Publicar os resultados no Jenkins
+                    publishHTML([
+                        allowMissing: false, 
+                        alwaysLinkToLastBuild: true, 
+                        keepAll: true, 
+                        reportDir: 'cypress/reports', 
+                        reportFiles: 'index.html', 
+                        reportName: 'Cypress Test Report'
+                    ])
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            ansiColor('xterm') {
+                echo 'Pipeline concluído, limpando workspace...'
+                cleanWs()
+            }
+        }
+        success {
+            ansiColor('xterm') {
+                echo 'Pipeline executado com sucesso!'
+            }
+        }
+        failure {
+            ansiColor('xterm') {
+                echo 'Falha no pipeline, verificando erros.'
+            }
+        }
+    }
+}
